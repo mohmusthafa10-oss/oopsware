@@ -1,0 +1,7 @@
+{% extends "base_auth.html" %}
+{% block title %}Not allowed{% endblock %}
+{% block content %}
+  <h2 class="text-lg font-semibold">You don't have access to this page</h2>
+  <p class="mt-2 text-sm text-slate-600">Your account doesn't have permission to view it.</p>
+  <a class="btn-primary mt-4 w-full" href="{% url 'home' %}">Go to my dashboard</a>
+{% endblock %}

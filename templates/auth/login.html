@@ -1,0 +1,16 @@
+{% extends "base_auth.html" %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+  <h2 class="mb-4 text-lg font-semibold">Sign in</h2>
+  <form method="post" class="space-y-4" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-error" role="alert">{{ form.non_field_errors|join:" " }}</div>
+    {% endif %}
+    {% include "components/form_field.html" with field=form.username %}
+    {% include "components/form_field.html" with field=form.password %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <button type="submit" class="btn-primary w-full">Sign in</button>
+  </form>
+  <p class="mt-4 text-center text-xs text-slate-500">Forgot your password? Ask your administrator to reset it.</p>
+{% endblock %}

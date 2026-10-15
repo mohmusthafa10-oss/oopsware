@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Admin dashboard{% endblock %}
+{% block content %}
+  <h1 class="text-2xl font-semibold">Welcome, {{ user.full_name }}</h1>
+  <p class="text-sm text-slate-500">{{ today|date:"l, j F Y" }}</p>
+  <div class="card mt-6">
+    <h2 class="font-semibold">Admin workspace</h2>
+    <p class="mt-1 text-sm text-slate-600">
+      Foundation is in place. Summary cards, members, attendance, tasks, and reports
+      arrive in later phases and will be driven by real data only.
+    </p>
+  </div>
+{% endblock %}

@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}My Attendance · {{ month_name }} {{ year }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <!-- Header & Month Controls -->
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-slate-900">My Attendance</h1>
+      <p class="text-sm text-slate-500">Record of daily working hours and presence</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="?year={{ prev_year }}&month={{ prev_month }}" class="btn-secondary px-3 py-1.5 text-xs font-semibold">
+        &larr; Prev
+      </a>
+      <span class="px-3 py-1.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg shadow-sm">
+        {{ month_name }} {{ year }}
+      </span>
+      <a href="?year={{ next_year }}&month={{ next_month }}" class="btn-secondary px-3 py-1.5 text-xs font-semibold">
+        Next &rarr;
+      </a>
+    </div>
+  </div>
+
+  <!-- Summary Strip -->
+  <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
+    <div class="card p-4 text-center">
+      <span class="text-xs font-medium text-slate-500">Eligible</span>
+      <p class="text-xl font-bold text-slate-900 mt-0.5">{{ summary.eligible_days }}</p>
+    </div>
+    <div class="card p-4 text-center">
+      <span class="text-xs font-medium text-emerald-600">Present</span>
+      <p class="text-xl font-bold text-emerald-700 mt-0.5">{{ summary.present_days }}</p>
+    </div>
+    <div class="card p-4 text-center">
+      <span class="text-xs font-medium text-amber-600">Late</span>
+      <p class="text-xl font-bold text-amber-700 mt-0.5">{{ summary.late_days }}</p>
+    </div>
+    <div class="card p-4 text-center">
+      <span class="text-xs font-medium text-red-600">Absent</span>
+      <p class="text-xl font-bold text-red-700 mt-0.5">{{ summary.absent_days }}</p>
+    </div>
+    <div class="card p-4 text-center">
+      <span class="text-xs font-medium text-blue-600">Leave</span>
+      <p class="text-xl font-bold text-blue-700 mt-0.5">{{ summary.leave_days }}</p>
+    </div>
+    <div class="card p-4 text-center">
+      <span class="text-xs font-medium text-amber-700">Missing Out</span>
+      <p class="text-xl font-bold text-amber-800 mt-0.5">{{ summary.missing_checkout_days }}</p>
+    </div>
+    <div class="card p-4 text-center col-span-2 sm:col-span-1 border-brand-200 bg-brand-50/50">
+      <span class="text-xs font-bold text-brand-700 uppercase tracking-wider">Attendance</span>
+      <p class="text-xl font-extrabold text-brand-800 mt-0.5">
+        {% if summary.percentage is not None %}
+          {{ summary.percentage }}%
+        {% else %}
+          &mdash;
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  <!-- Daily Breakdown Table -->
+  <div class="card overflow-hidden p-0">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-sm text-slate-600">
+        <thead class="bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase text-slate-500">
+          <tr>
+            <th class="px-5 py-3">Date</th>
+            <th class="px-4 py-3">Day</th>
+            <th class="px-4 py-3">Day Type</th>
+            <th class="px-4 py-3">Status</th>
+            <th class="px-4 py-3">Check In</th>
+            <th class="px-4 py-3">Check Out</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for s in statuses %}
+            <tr class="hover:bg-slate-50/70 transition {% if s.presence == 'ABSENT' %}bg-red-50/30{% elif s.worked_on_non_working_day %}bg-amber-50/20{% endif %}">
+              <td class="px-5 py-3 font-medium text-slate-900 whitespace-nowrap">
+                {{ s.date|date:"j M Y" }}
+              </td>
+              <td class="px-4 py-3 text-slate-500">
+                {{ s.date|date:"D" }}
+              </td>
+              <td class="px-4 py-3">
+                <span class="badge badge-neutral text-xs">{{ s.day_type }}</span>
+              </td>
+              <td class="px-4 py-3">
+                {% if s.presence == "PRESENT" %}
+                  {% if s.arrived_after_cutoff %}
+                    <span class="badge badge-danger">Present (After Cutoff)</span>
+                  {% elif s.is_late %}
+                    <span class="badge badge-warning">Present (Late)</span>
+                  {% else %}
+                    <span class="badge badge-success">Present</span>
+                  {% endif %}
+                {% elif s.presence == "ABSENT" %}
+                  <span class="badge badge-danger">Absent</span>
+                {% elif s.presence == "NOT_YET" %}
+                  <span class="badge badge-neutral text-slate-500">Not checked in</span>
+                {% else %}
+                  <span class="badge badge-neutral">{{ s.label }}</span>
+                {% endif %}
+                {% if s.checkout_state == "MISSING" %}
+                  <span class="badge badge-warning ml-1">Missing checkout</span>
+                {% endif %}
+              </td>
+              <td class="px-4 py-3 text-slate-800">
+                {% if s.effective_check_in %}
+                  {{ s.effective_check_in|date:"H:i" }}
+                  {% if s.was_corrected %}<span class="text-[10px] text-slate-400">(c)</span>{% endif %}
+                {% else %}
+                  <span class="text-slate-300">&mdash;</span>
+                {% endif %}
+              </td>
+              <td class="px-4 py-3 text-slate-800">
+                {% if s.effective_check_out %}
+                  {{ s.effective_check_out|date:"H:i" }}
+                  {% if s.was_corrected %}<span class="text-[10px] text-slate-400">(c)</span>{% endif %}
+                {% else %}
+                  <span class="text-slate-300">&mdash;</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" class="px-5 py-8 text-center text-slate-400">
+                No calendar data available for this month.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

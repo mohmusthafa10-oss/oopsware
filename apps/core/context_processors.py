@@ -1,11 +1,15 @@
 from django.urls import reverse
 
-# Only list screens that exist. Each phase appends to these.
 ADMIN_NAV = [
     {"label": "Dashboard", "url_name": "manage_dashboard"},
+    {"label": "Members", "url_name": "manage_members"},
+    {"label": "Attendance", "url_name": "manage_attendance"},
+    {"label": "Holiday Calendar", "url_name": "manage_calendar"},
 ]
+
 MEMBER_NAV = [
     {"label": "My Dashboard", "url_name": "user_dashboard"},
+    {"label": "My Attendance", "url_name": "user_attendance"},
 ]
 
 

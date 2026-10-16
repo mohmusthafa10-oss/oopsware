@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}{{ member.full_name }} · Member Management{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <!-- Top bar with breadcrumb & actions -->
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-4">
+    <div>
+      <div class="flex items-center gap-2 text-xs text-slate-500 mb-1">
+        <a href="{% url 'manage_members' %}" class="hover:underline">Members</a>
+        <span>/</span>
+        <span class="text-slate-700 font-medium">{{ member.full_name }}</span>
+      </div>
+      <h1 class="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
+        {{ member.full_name }}
+        {% if member.is_active %}
+          <span class="badge badge-success text-xs">Active</span>
+        {% else %}
+          <span class="badge badge-danger text-xs">Deactivated</span>
+        {% endif %}
+      </h1>
+      <p class="text-sm text-slate-500">{{ member.email }}</p>
+    </div>
+
+    <div class="flex items-center gap-2">
+      {% if member.is_active %}
+        <form method="post" action="{% url 'manage_member_deactivate' member.pk %}" onsubmit="return confirm('Are you sure you want to deactivate this member? They will lose access immediately.');">
+          {% csrf_token %}
+          <button type="submit" class="btn-danger text-xs py-1.5 px-3">Deactivate Member</button>
+        </form>
+      {% else %}
+        <form method="post" action="{% url 'manage_member_reactivate' member.pk %}" onsubmit="return confirm('Reactivate this member account?');">
+          {% csrf_token %}
+          <button type="submit" class="btn-primary text-xs py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700">Reactivate Member</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-3">
+    <!-- Schedule History Column -->
+    <div class="lg:col-span-2 space-y-6">
+      <div class="card overflow-hidden p-0">
+        <div class="border-b border-slate-200 p-4 bg-slate-50">
+          <h2 class="text-base font-semibold text-slate-900">Work Schedule History</h2>
+          <p class="text-xs text-slate-500">Effective-dated schedules. Overlapping ranges are prevented by PostgreSQL exclusion constraints.</p>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-600">
+            <thead class="bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase text-slate-500">
+              <tr>
+                <th class="px-5 py-3">Effective Range</th>
+                <th class="px-4 py-3">Work Hours</th>
+                <th class="px-4 py-3">Grace & Cutoff</th>
+                <th class="px-4 py-3">Weekdays</th>
+                <th class="px-4 py-3">Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              {% for s in schedules %}
+                <tr class="hover:bg-slate-50/70 transition">
+                  <td class="px-5 py-3 font-medium text-slate-900 whitespace-nowrap">
+                    {{ s.effective_from|date:"j M Y" }} &rarr;
+                    {% if s.effective_to %}{{ s.effective_to|date:"j M Y" }}{% else %}<span class="text-emerald-600 font-semibold">Open</span>{% endif %}
+                  </td>
+                  <td class="px-4 py-3 text-slate-800">
+                    {{ s.start_time|time:"H:i" }} – {{ s.end_time|time:"H:i" }}
+                  </td>
+                  <td class="px-4 py-3 text-xs text-slate-600">
+                    Grace: {{ s.late_grace_minutes }}m | Cutoff: {{ s.absence_cutoff_minutes }}m
+                  </td>
+                  <td class="px-4 py-3 text-xs text-slate-600">
+                    {{ s.working_weekdays|join:", " }}
+                  </td>
+                  <td class="px-4 py-3">
+                    {% if not s.effective_to %}
+                      <span class="badge badge-success text-xs">Current</span>
+                    {% else %}
+                      <span class="badge badge-neutral text-xs">Closed</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="5" class="px-5 py-8 text-center text-slate-400">
+                    No schedule history recorded.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions Column (New Schedule & Edit Name) -->
+    <div class="space-y-6">
+      <!-- Edit Name Card -->
+      <div class="card space-y-3">
+        <h3 class="text-sm font-semibold text-slate-900 uppercase tracking-wider">Update Details</h3>
+        <form method="post" action="{% url 'manage_member_edit' member.pk %}" class="space-y-3 single-submit-form">
+          {% csrf_token %}
+          <div>
+            <label for="id_full_name" class="label">Full Name</label>
+            {{ edit_form.full_name }}
+          </div>
+          <button type="submit" class="btn-secondary w-full text-xs py-2">Save Name</button>
+        </form>
+      </div>
+
+      <!-- New Schedule Version Form -->
+      <div class="card space-y-3">
+        <h3 class="text-sm font-semibold text-slate-900 uppercase tracking-wider">New Schedule Version</h3>
+        <p class="text-xs text-slate-500">
+          This will automatically close the currently active open schedule as of the day before the new effective date.
+        </p>
+
+        <div class="rounded-lg bg-amber-50 p-2.5 border border-amber-200 text-xs text-amber-800">
+          <strong>Notice:</strong> Backdating is permitted but recalculates historical daily calculations from that date forward.
+        </div>
+
+        <form method="post" action="{% url 'manage_schedule_version_create' member.pk %}" class="space-y-3 single-submit-form">
+          {% csrf_token %}
+          <div>
+            <label for="id_sched_effective_from" class="label">Effective From Date</label>
+            {{ schedule_form.effective_from }}
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="label">Start Time</label>
+              {{ schedule_form.start_time }}
+            </div>
+            <div>
+              <label class="label">End Time</label>
+              {{ schedule_form.end_time }}
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="label">Grace (min)</label>
+              {{ schedule_form.late_grace_minutes }}
+            </div>
+            <div>
+              <label class="label">Cutoff (min)</label>
+              {{ schedule_form.absence_cutoff_minutes }}
+            </div>
+          </div>
+          <div>
+            <label class="label">Working Weekdays</label>
+            <div class="grid grid-cols-2 gap-1 text-xs text-slate-700">
+              {{ schedule_form.working_weekdays }}
+            </div>
+          </div>
+          <button type="submit" class="btn-primary w-full text-xs py-2">Apply New Version</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

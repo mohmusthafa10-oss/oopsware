@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Holiday Calendar · Manage{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+  <!-- Header & Controls -->
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-slate-900">Holiday Calendar & Policies</h1>
+      <p class="text-sm text-slate-500">Configure public holidays, working overrides, and effective-dated weekend policies</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="?year={{ prev_year }}&month={{ prev_month }}" class="btn-secondary px-3 py-1.5 text-xs font-semibold">
+        &larr; Prev
+      </a>
+      <span class="px-3 py-1.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg shadow-sm">
+        {{ month_name }} {{ year }}
+      </span>
+      <a href="?year={{ next_year }}&month={{ next_month }}" class="btn-secondary px-3 py-1.5 text-xs font-semibold">
+        Next &rarr;
+      </a>
+    </div>
+  </div>
+
+  <!-- Calendar Grid -->
+  <div class="card p-0 overflow-hidden">
+    <div class="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center text-xs font-bold uppercase tracking-wider text-slate-600 py-2.5">
+      <div>Mon</div>
+      <div>Tue</div>
+      <div>Wed</div>
+      <div>Thu</div>
+      <div>Fri</div>
+      <div class="text-amber-700">Sat</div>
+      <div class="text-red-700">Sun</div>
+    </div>
+    <div class="grid grid-cols-7 divide-x divide-y divide-slate-100 bg-slate-50/50">
+      {% for week in weeks %}
+        {% for day in week %}
+          <div class="min-h-[90px] p-2 bg-white flex flex-col justify-between transition hover:bg-slate-50/80 {% if not day.in_month %}opacity-30 bg-slate-50/40{% endif %} {% if day.is_today %}ring-2 ring-brand-500 ring-inset{% endif %}">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold {% if day.is_today %}text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded-full{% else %}text-slate-700{% endif %}">
+                {{ day.date.day }}
+              </span>
+              {% if day.is_second_sat %}
+                <span class="text-[10px] font-semibold text-amber-700 bg-amber-50 px-1 rounded">2nd Sat</span>
+              {% endif %}
+            </div>
+
+            <div class="mt-1 space-y-1">
+              {% if day.holiday %}
+                {% if day.holiday.kind == "working_override" %}
+                  <div class="rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[11px] text-emerald-800 font-medium">
+                    {{ day.holiday.name }} (Work)
+                  </div>
+                {% else %}
+                  <div class="rounded bg-red-50 border border-red-200 px-1.5 py-0.5 text-[11px] text-red-800 font-medium">
+                    {{ day.holiday.name }}
+                  </div>
+                {% endif %}
+              {% elif day.day_type == "WEEKLY_OFF" %}
+                <span class="inline-block text-[10px] text-slate-400 font-medium">Off Day</span>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-2">
+    <!-- Holidays Management Card -->
+    <div class="card space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h2 class="text-base font-semibold text-slate-900">Add Holiday or Override</h2>
+        <span class="text-xs text-slate-400">Overrides make off-days working</span>
+      </div>
+
+      <form method="post" action="{% url 'manage_holiday_create' %}" class="space-y-3 single-submit-form">
+        {% csrf_token %}
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">Date</label>
+            {{ holiday_form.date }}
+          </div>
+          <div>
+            <label class="label">Kind</label>
+            {{ holiday_form.kind }}
+          </div>
+        </div>
+        <div>
+          <label class="label">Description / Name</label>
+          {{ holiday_form.name }}
+        </div>
+        <button type="submit" class="btn-primary w-full text-xs py-2">Add Holiday</button>
+      </form>
+
+      <div class="pt-2">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Holidays in {{ year }}</h3>
+        <ul class="divide-y divide-slate-100 max-h-56 overflow-y-auto text-xs">
+          {% for h in holidays %}
+            <li class="py-2 flex items-center justify-between">
+              <div>
+                <p class="font-semibold text-slate-800">{{ h.name }}</p>
+                <p class="text-slate-400">{{ h.date|date:"j M Y (D)" }} &middot; <span class="capitalize">{{ h.get_kind_display }}</span></p>
+              </div>
+              <form method="post" action="{% url 'manage_holiday_delete' h.pk %}" onsubmit="return confirm('Delete this holiday entry?');">
+                {% csrf_token %}
+                <button type="submit" class="text-red-600 hover:text-red-800 font-medium text-xs">Delete</button>
+              </form>
+            </li>
+          {% empty %}
+            <li class="py-3 text-center text-slate-400 italic">No holidays configured for {{ year }}.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+
+    <!-- Calendar Policy Management Card -->
+    <div class="card space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h2 class="text-base font-semibold text-slate-900">Calendar Weekend Policy</h2>
+        <span class="text-xs text-slate-400">Effective-dated policies</span>
+      </div>
+
+      <div class="rounded-lg bg-amber-50 p-2.5 border border-amber-200 text-xs text-amber-800">
+        <strong>Notice:</strong> Creating a new policy version applies to all dates on and after its effective date. Past dates remain evaluated against previous policy versions.
+      </div>
+
+      <form method="post" action="{% url 'manage_policy_create' %}" class="space-y-3 single-submit-form">
+        {% csrf_token %}
+        <div>
+          <label class="label">Effective From Date</label>
+          {{ policy_form.effective_from }}
+        </div>
+        <div class="flex gap-6 py-1">
+          <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-700">
+            {{ policy_form.sunday_off }}
+            Sunday Off
+          </label>
+          <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-700">
+            {{ policy_form.second_saturday_off }}
+            Second Saturday Off
+          </label>
+        </div>
+        <button type="submit" class="btn-primary w-full text-xs py-2">Create Policy Version</button>
+      </form>
+
+      <div class="pt-2">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Policy Versions History</h3>
+        <ul class="divide-y divide-slate-100 max-h-56 overflow-y-auto text-xs">
+          {% for p in policies %}
+            <li class="py-2 flex items-center justify-between">
+              <div>
+                <p class="font-semibold text-slate-800">Effective from {{ p.effective_from|date:"j M Y" }}</p>
+                <p class="text-slate-400">Sunday off: {{ p.sunday_off|yesno:"Yes,No" }} | 2nd Saturday off: {{ p.second_saturday_off|yesno:"Yes,No" }}</p>
+              </div>
+              <span class="badge badge-neutral text-[10px]">Created {{ p.created_at|date:"j M Y" }}</span>
+            </li>
+          {% empty %}
+            <li class="py-3 text-center text-slate-400 italic">No policies recorded.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

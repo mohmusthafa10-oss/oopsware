@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Attendance Corrections{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold tracking-tight text-slate-900">Attendance Corrections</h1>
+    <p class="text-sm text-slate-500">Request corrections for missed check-ins or forgotten check-outs (within 30 days).</p>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-3">
+    <!-- Form Card -->
+    <div class="card space-y-4">
+      <h2 class="text-base font-semibold text-slate-900">New Correction Request</h2>
+      <form method="post" action="{% url 'user_corrections' %}" class="space-y-4 single-submit-form">
+        {% csrf_token %}
+        <div>
+          <label for="id_work_date" class="label">Work Date</label>
+          {{ form.work_date }}
+          {% if form.work_date.errors %}<p class="field-error">{{ form.work_date.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+          <label for="id_type" class="label">Correction Type</label>
+          {{ form.type }}
+          {% if form.type.errors %}<p class="field-error">{{ form.type.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+          <label for="id_requested_time" class="label">Requested Time (HH:MM IST)</label>
+          {{ form.requested_time }}
+          {% if form.requested_time.errors %}<p class="field-error">{{ form.requested_time.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+          <label for="id_reason" class="label">Reason</label>
+          {{ form.reason }}
+          {% if form.reason.errors %}<p class="field-error">{{ form.reason.errors.0 }}</p>{% endif %}
+        </div>
+        <button type="submit" class="btn-primary w-full">Submit request</button>
+      </form>
+    </div>
+
+    <!-- Requests History Table -->
+    <div class="card lg:col-span-2 overflow-hidden p-0">
+      <div class="border-b border-slate-200 px-5 py-3 bg-slate-50">
+        <h2 class="text-base font-semibold text-slate-900">Your Request History</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-600">
+          <thead class="bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase text-slate-500">
+            <tr>
+              <th class="px-5 py-3">Work Date</th>
+              <th class="px-4 py-3">Type</th>
+              <th class="px-4 py-3">Requested Time</th>
+              <th class="px-4 py-3">Status</th>
+              <th class="px-5 py-3">Admin Note</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for r in requests %}
+              <tr class="hover:bg-slate-50/70 transition">
+                <td class="px-5 py-3 font-medium text-slate-900 whitespace-nowrap">
+                  {{ r.work_date|date:"j M Y" }}
+                </td>
+                <td class="px-4 py-3">
+                  <span class="badge badge-neutral">{{ r.get_type_display }}</span>
+                </td>
+                <td class="px-4 py-3 text-slate-800">
+                  {{ r.requested_time|time:"H:i" }}
+                </td>
+                <td class="px-4 py-3">
+                  {% if r.status == "approved" %}
+                    <span class="badge badge-success">Approved</span>
+                  {% elif r.status == "rejected" %}
+                    <span class="badge badge-danger">Rejected</span>
+                  {% else %}
+                    <span class="badge badge-warning">Pending</span>
+                  {% endif %}
+                </td>
+                <td class="px-5 py-3 text-xs text-slate-600">
+                  {% if r.review_comment %}
+                    <p class="font-medium text-slate-800">{{ r.review_comment }}</p>
+                    <p class="text-slate-400 mt-0.5">by {{ r.reviewed_by.full_name }} on {{ r.reviewed_at|date:"j M H:i" }}</p>
+                  {% else %}
+                    <span class="text-slate-400">&mdash;</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="5" class="px-5 py-8 text-center text-slate-400">
+                  You have not submitted any attendance correction requests.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

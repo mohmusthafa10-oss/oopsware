@@ -37,6 +37,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     must_change_password = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    deactivated_at = models.DateTimeField(null=True, blank=True)
 
     objects = UserManager()
 
@@ -83,3 +84,25 @@ class User(AbstractBaseUser, PermissionsMixin):
             raise ValidationError(
                 "This is the last active admin. Create or keep another active admin first."
             )
+
+    def save(self, *args, **kwargs):
+        from apps.core.timeutils import local_now
+
+        if self.pk:
+            prev = User.objects.filter(pk=self.pk).values("is_active").first()
+            if prev:
+                if prev["is_active"] and not self.is_active:
+                    self.deactivated_at = local_now()
+                elif not prev["is_active"] and self.is_active:
+                    self.deactivated_at = None
+        else:
+            if not self.is_active and not self.deactivated_at:
+                self.deactivated_at = local_now()
+
+        if "update_fields" in kwargs and kwargs["update_fields"] is not None:
+            update_fields = set(kwargs["update_fields"])
+            if "is_active" in update_fields:
+                update_fields.add("deactivated_at")
+            kwargs["update_fields"] = list(update_fields)
+
+        super().save(*args, **kwargs)

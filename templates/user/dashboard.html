@@ -1,12 +1,143 @@
 {% extends "base.html" %}
-{% block title %}My dashboard{% endblock %}
+{% block title %}My Dashboard{% endblock %}
+
 {% block content %}
-  <h1 class="text-2xl font-semibold">Hello, {{ user.full_name }}</h1>
-  <p class="text-sm text-slate-500">{{ today|date:"l, j F Y" }}</p>
-  <div class="card mt-6">
-    <h2 class="font-semibold">Your workday</h2>
-    <p class="mt-1 text-sm text-slate-600">
-      Check-in, tasks, to-dos, and daily reports arrive in later phases.
-    </p>
+<div class="space-y-6">
+  <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-slate-900">Hello, {{ user.full_name }}</h1>
+      <p class="text-sm text-slate-500">{{ today|date:"l, j F Y" }}</p>
+    </div>
+    {% if pending_corrections_count > 0 %}
+      <div>
+        <a href="{% url 'user_corrections' %}" class="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 border border-amber-200 hover:bg-amber-100 transition">
+          <span class="inline-block h-2 w-2 rounded-full bg-amber-500"></span>
+          {{ pending_corrections_count }} pending correction request{{ pending_corrections_count|pluralize }}
+        </a>
+      </div>
+    {% endif %}
   </div>
+
+  {% if not schedule %}
+    <div class="alert alert-error">
+      <p class="font-semibold">No Work Schedule Configured</p>
+      <p class="text-sm mt-0.5">No schedule is configured for your account. Please contact your administrator to set up your work schedule.</p>
+    </div>
+  {% endif %}
+
+  <!-- Today's Workday Card -->
+  <div class="grid gap-6 md:grid-cols-3">
+    <div class="card md:col-span-2 space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div>
+          <h2 class="text-base font-semibold text-slate-900">Today's Attendance</h2>
+          <p class="text-xs text-slate-500">
+            {% if schedule %}
+              Scheduled: {{ schedule.start_time|time:"H:i" }} – {{ schedule.end_time|time:"H:i" }}
+              (Grace: {{ schedule.late_grace_minutes }}m, Cutoff: {{ schedule.absence_cutoff_minutes }}m)
+            {% else %}
+              Schedule unassigned
+            {% endif %}
+          </p>
+        </div>
+        <div>
+          {% if status.presence == "PRESENT" %}
+            {% if status.is_late %}
+              <span class="badge badge-warning">Present (Late)</span>
+            {% else %}
+              <span class="badge badge-success">Present</span>
+            {% endif %}
+          {% elif status.presence == "ABSENT" %}
+            <span class="badge badge-danger">Absent</span>
+          {% elif status.presence == "NOT_YET" %}
+            <span class="badge badge-neutral">Not checked in</span>
+          {% else %}
+            <span class="badge badge-neutral">{{ status.label }}</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div class="rounded-lg bg-slate-50 p-3.5 border border-slate-100">
+          <span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Check In</span>
+          <div class="mt-1 flex items-baseline gap-2">
+            {% if status.effective_check_in %}
+              <span class="text-xl font-bold text-slate-900">{{ status.effective_check_in|date:"H:i" }}</span>
+              <span class="text-xs text-slate-400">IST</span>
+              {% if status.was_corrected %}<span class="badge badge-neutral text-[10px]">corrected</span>{% endif %}
+            {% else %}
+              <span class="text-base font-medium text-slate-400">—</span>
+            {% endif %}
+          </div>
+          {% if status.is_late %}
+            <p class="mt-1 text-xs text-amber-700 font-medium">Arrived past grace period</p>
+          {% endif %}
+        </div>
+
+        <div class="rounded-lg bg-slate-50 p-3.5 border border-slate-100">
+          <span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Check Out</span>
+          <div class="mt-1 flex items-baseline gap-2">
+            {% if status.effective_check_out %}
+              <span class="text-xl font-bold text-slate-900">{{ status.effective_check_out|date:"H:i" }}</span>
+              <span class="text-xs text-slate-400">IST</span>
+              {% if status.was_corrected %}<span class="badge badge-neutral text-[10px]">corrected</span>{% endif %}
+            {% else %}
+              <span class="text-base font-medium text-slate-400">—</span>
+            {% endif %}
+          </div>
+          {% if status.checkout_state == "PENDING" and now|time:"H:i" > schedule.end_time|time:"H:i" %}
+            <p class="mt-1 text-xs text-amber-600 font-medium">Checkout pending</p>
+          {% elif status.checkout_state == "MISSING" %}
+            <p class="mt-1 text-xs text-red-600 font-medium">Missing checkout</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Action Button Area -->
+      <div class="pt-2">
+        {% if can_check_in %}
+          <form method="post" action="{% url 'user_check_in' %}" class="single-submit-form">
+            {% csrf_token %}
+            <button type="submit" class="btn-primary w-full sm:w-auto px-6 py-2.5 text-base">
+              Check in now
+            </button>
+          </form>
+        {% elif can_check_out %}
+          <form method="post" action="{% url 'user_check_out' %}" class="single-submit-form">
+            {% csrf_token %}
+            <button type="submit" class="btn-primary w-full sm:w-auto px-6 py-2.5 text-base bg-emerald-600 hover:bg-emerald-700">
+              Check out now
+            </button>
+          </form>
+        {% else %}
+          <button type="button" disabled class="btn-secondary w-full sm:w-auto px-6 py-2.5 opacity-60 cursor-not-allowed">
+            {{ button_disabled_reason|default:"No action required" }}
+          </button>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Quick Navigation / Stats Card -->
+    <div class="card space-y-4">
+      <h3 class="text-sm font-semibold text-slate-900 uppercase tracking-wider">Self Service</h3>
+      <div class="space-y-2">
+        <a href="{% url 'user_attendance' %}" class="flex items-center justify-between rounded-lg border border-slate-200 p-3 hover:bg-slate-50 transition">
+          <div>
+            <p class="text-sm font-medium text-slate-800">Monthly Attendance</p>
+            <p class="text-xs text-slate-500">View log, presence & percentages</p>
+          </div>
+          <span class="text-slate-400">&rarr;</span>
+        </a>
+
+        <a href="{% url 'user_corrections' %}" class="flex items-center justify-between rounded-lg border border-slate-200 p-3 hover:bg-slate-50 transition">
+          <div>
+            <p class="text-sm font-medium text-slate-800">Attendance Corrections</p>
+            <p class="text-xs text-slate-500">Request missed check-in or check-out</p>
+          </div>
+          <span class="text-slate-400">&rarr;</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}

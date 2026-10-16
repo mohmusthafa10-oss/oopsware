@@ -17,8 +17,12 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",
     "apps.core",
     "apps.accounts",
+    "apps.audit",
+    "apps.scheduling",
+    "apps.attendance",
 ]
 
 MIDDLEWARE = [
@@ -99,3 +103,7 @@ LOGGING = {
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "root": {"handlers": ["console"], "level": "INFO"},
 }
+
+# --- Phase 3: Attendance & Scheduling ---------------------------------------
+CHECKIN_EARLY_MINUTES = 120
+CORRECTION_WINDOW_DAYS = 30

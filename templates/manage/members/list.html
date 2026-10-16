@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Members · Manage{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-slate-900">Members</h1>
+      <p class="text-sm text-slate-500">Manage company employees, interns, and their work schedules</p>
+    </div>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-3">
+    <!-- Member List Area -->
+    <div class="card lg:col-span-2 overflow-hidden p-0">
+      <div class="border-b border-slate-200 p-4 bg-slate-50 flex items-center justify-between gap-4">
+        <form method="get" class="flex-1 max-w-sm flex items-center gap-2">
+          <input type="text" name="q" value="{{ search_query }}" placeholder="Search members by name or email..." class="input py-1.5 text-xs">
+          <button type="submit" class="btn-secondary py-1.5 text-xs">Search</button>
+          {% if search_query %}
+            <a href="{% url 'manage_members' %}" class="text-xs text-slate-500 hover:text-slate-800">Clear</a>
+          {% endif %}
+        </form>
+        <span class="text-xs text-slate-500 font-medium">Total: {{ page_obj.paginator.count }}</span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-600">
+          <thead class="bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase text-slate-500">
+            <tr>
+              <th class="px-5 py-3">Member</th>
+              <th class="px-4 py-3">Status</th>
+              <th class="px-4 py-3">Current Schedule</th>
+              <th class="px-4 py-3 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for m in page_obj %}
+              <tr class="hover:bg-slate-50/70 transition">
+                <td class="px-5 py-3">
+                  <a href="{% url 'manage_member_detail' m.pk %}" class="font-medium text-brand-600 hover:text-brand-800 hover:underline">
+                    {{ m.full_name }}
+                  </a>
+                  <p class="text-xs text-slate-500">{{ m.email }}</p>
+                </td>
+                <td class="px-4 py-3">
+                  {% if m.is_active %}
+                    <span class="badge badge-success">Active</span>
+                  {% else %}
+                    <span class="badge badge-danger">Deactivated</span>
+                  {% endif %}
+                </td>
+                <td class="px-4 py-3 text-xs text-slate-700">
+                  {% if m.current_schedule %}
+                    <p class="font-semibold text-slate-900">{{ m.current_schedule.start_time|time:"H:i" }} – {{ m.current_schedule.end_time|time:"H:i" }}</p>
+                    <p class="text-slate-500">Grace: {{ m.current_schedule.late_grace_minutes }}m | Cutoff: {{ m.current_schedule.absence_cutoff_minutes }}m</p>
+                  {% else %}
+                    <span class="text-slate-400 italic">No schedule</span>
+                  {% endif %}
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <a href="{% url 'manage_member_detail' m.pk %}" class="btn-secondary py-1 px-2.5 text-xs">
+                    Manage &rarr;
+                  </a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="4" class="px-5 py-8 text-center text-slate-400">
+                  No members found matching your search.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if page_obj.has_other_pages %}
+        <div class="border-t border-slate-200 px-5 py-3 flex items-center justify-between text-xs text-slate-500">
+          <div>
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+          </div>
+          <div class="flex gap-1">
+            {% if page_obj.has_previous %}
+              <a href="?page={{ page_obj.previous_page_number }}&q={{ search_query }}" class="btn-secondary py-1 px-2 text-xs">Previous</a>
+            {% endif %}
+            {% if page_obj.has_next %}
+              <a href="?page={{ page_obj.next_page_number }}&q={{ search_query }}" class="btn-secondary py-1 px-2 text-xs">Next</a>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Create Member Form -->
+    <div class="card space-y-4">
+      <h2 class="text-base font-semibold text-slate-900">Add New Member</h2>
+      <p class="text-xs text-slate-500">Creates the account and sets up their initial work schedule in one transaction.</p>
+
+      <form method="post" action="{% url 'manage_members' %}" class="space-y-3.5 single-submit-form">
+        {% csrf_token %}
+        <div>
+          <label for="id_full_name" class="label">Full Name</label>
+          {{ create_form.full_name }}
+          {% if create_form.full_name.errors %}<p class="field-error">{{ create_form.full_name.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+          <label for="id_email" class="label">Email Address</label>
+          {{ create_form.email }}
+          {% if create_form.email.errors %}<p class="field-error">{{ create_form.email.errors.0 }}</p>{% endif %}
+        </div>
+
+        <div class="pt-2 border-t border-slate-100">
+          <p class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Initial Work Schedule</p>
+          <div>
+            <label for="id_effective_from" class="label">Effective From</label>
+            {{ create_form.effective_from }}
+            {% if create_form.effective_from.errors %}<p class="field-error">{{ create_form.effective_from.errors.0 }}</p>{% endif %}
+          </div>
+          <div class="grid grid-cols-2 gap-2 mt-2">
+            <div>
+              <label for="id_start_time" class="label">Start Time</label>
+              {{ create_form.start_time }}
+              {% if create_form.start_time.errors %}<p class="field-error">{{ create_form.start_time.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+              <label for="id_end_time" class="label">End Time</label>
+              {{ create_form.end_time }}
+              {% if create_form.end_time.errors %}<p class="field-error">{{ create_form.end_time.errors.0 }}</p>{% endif %}
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2 mt-2">
+            <div>
+              <label for="id_late_grace_minutes" class="label">Grace (min)</label>
+              {{ create_form.late_grace_minutes }}
+              {% if create_form.late_grace_minutes.errors %}<p class="field-error">{{ create_form.late_grace_minutes.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+              <label for="id_absence_cutoff_minutes" class="label">Cutoff (min)</label>
+              {{ create_form.absence_cutoff_minutes }}
+              {% if create_form.absence_cutoff_minutes.errors %}<p class="field-error">{{ create_form.absence_cutoff_minutes.errors.0 }}</p>{% endif %}
+            </div>
+          </div>
+          <div class="mt-2">
+            <label class="label">Working Weekdays</label>
+            <div class="grid grid-cols-2 gap-1.5 text-xs text-slate-700">
+              {{ create_form.working_weekdays }}
+            </div>
+            {% if create_form.working_weekdays.errors %}<p class="field-error">{{ create_form.working_weekdays.errors.0 }}</p>{% endif %}
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary w-full mt-3">Create Member</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
